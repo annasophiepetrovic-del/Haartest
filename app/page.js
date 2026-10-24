@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 // Annas WhatsApp-Nummer (Ländervorwahl + Nummer, nur Ziffern)
 const WHATSAPP_NUMBER = '4915737732392';
@@ -140,9 +140,16 @@ function fallback(s, name) {
   };
 }
 
-function waMessage(result, ans, name) {
+// Kennung aus der Adresse, z. B. ?quelle=haarausfall-nach-geburt. Nur Buchstaben, Ziffern, - und _.
+function cleanQuelle(raw) {
+  return String(raw || '').toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 60);
+}
+
+function waMessage(result, ans, name, quelle) {
   const s = result.s;
-  const lines = [`Hallo Anna, hier ist ${name || 'eine Leserin'}. Ich habe deinen Haar-Check gemacht.`, '', `Mein Hauptthema: ${result.headline}`];
+  const lines = [`Hallo Anna, hier ist ${name || 'eine Leserin'}. Ich habe deinen Haar-Check gemacht.`];
+  if (quelle) lines.push(`Ich komme von deinem Artikel: ${quelle}`);
+  lines.push('', `Mein Hauptthema: ${result.headline}`);
   if (s.themes.length > 1) lines.push('Außerdem: ' + s.themes.slice(1).map((k) => SHORT[k]).join(', '));
   lines.push('', 'Meine Antworten:');
   Q.forEach((q) => lines.push(`• ${q.t.replace(/\?$/, '')}: ${(ans[q.id] || []).map((i) => q.o[i][0]).join(', ')}`));
@@ -157,6 +164,13 @@ export default function Page() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState('');
+  const [quelle, setQuelle] = useState('');
+
+  useEffect(() => {
+    try {
+      setQuelle(cleanQuelle(new URLSearchParams(window.location.search).get('quelle')));
+    } catch (e) {}
+  }, []);
 
   async function analyze() {
     setStep(99);
@@ -264,7 +278,7 @@ export default function Page() {
     );
   } else if (result) {
     const r = result;
-    const msg = waMessage(r, ans, name.trim());
+    const msg = waMessage(r, ans, name.trim(), quelle);
     const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`;
     view = (
       <>
